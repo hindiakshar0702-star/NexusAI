@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --nx-bg: #f4f1eb;
+  --nx-fg: #1a1a1a;
+  --nx-line: #1a1a1a;
+  --nx-primary: #1a3b5c;
+  --nx-secondary: #ea4313;
+  --nx-glass: rgba(255, 255, 255, 0.55);
+  --nx-glass-border: rgba(26, 26, 26, 0.12);
+}
+
+.dark {
+  --nx-bg: #0b0f1a;
+  --nx-fg: #e7eaf0;
+  --nx-line: #243047;
+  --nx-primary: #6aa3ff;
+  --nx-secondary: #ff7a4d;
+  --nx-glass: rgba(16, 23, 42, 0.55);
+  --nx-glass-border: rgba(255, 255, 255, 0.08);
+}
+
+html, body {
+  background: var(--nx-bg);
+  color: var(--nx-fg);
+}
+
+body {
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- reusable primitives ---- */
+@layer components {
+  .nx-glass {
+    background: var(--nx-glass);
+    border: 1px solid var(--nx-glass-border);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    @apply shadow-nx-glass dark:shadow-nx-glass-dark;
+  }
+
+  .nx-mono {
+    font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  .nx-pill {
+    @apply inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[11px] uppercase tracking-wider;
+  }
+
+  .nx-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill px-4 py-2 text-sm font-medium
+           transition-colors duration-nx-fast ease-nx-ease border border-current;
+  }
+
+  .nx-btn-primary {
+    @apply nx-btn bg-nx-primary text-white border-nx-primary
+           hover:bg-[#16314c] dark:bg-[#3b6dd9] dark:border-[#3b6dd9] dark:hover:bg-[#4f7ee0];
+  }
+
+  .nx-btn-ghost {
+    @apply nx-btn bg-transparent text-nx-ink hover:bg-black/5 dark:text-nx-dark-ink dark:hover:bg-white/5;
+  }
+
+  .nx-input {
+    @apply block w-full rounded-pill border border-nx-line/60 bg-white/80 dark:bg-nx-dark-surface/60
+           dark:border-nx-dark-line px-4 py-2.5 text-sm font-mono outline-none
+           focus:ring-2 focus:ring-nx-primary/30 focus:border-nx-primary
+           dark:focus:border-[#6aa3ff] transition-colors duration-nx-fast;
+  }
+
+  .nx-textarea {
+    @apply block w-full rounded-2xl border border-nx-line/60 bg-white/80 dark:bg-nx-dark-surface/60
+           dark:border-nx-dark-line px-4 py-3 text-sm font-mono outline-none
+           focus:ring-2 focus:ring-nx-primary/30 focus:border-nx-primary
+           dark:focus:border-[#6aa3ff] transition-colors duration-nx-fast resize-y;
+  }
+
+  .nx-card {
+    @apply nx-glass rounded-2xl p-5;
+  }
+
+  .nx-section-title {
+    @apply text-[11px] uppercase tracking-[0.18em] nx-mono opacity-70;
+  }
+
+  .nx-label {
+    @apply block text-[11px] uppercase tracking-wider nx-mono opacity-70 mb-1.5;
+  }
+}
+
+/* shimmer accent for live-generation states */
+.nx-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(26, 59, 92, 0.12) 35%,
+    rgba(234, 67, 19, 0.18) 50%,
+    rgba(26, 59, 92, 0.12) 65%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+}
