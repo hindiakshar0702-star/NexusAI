@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from ..engines import (
     AgentOrchestrator,
@@ -19,8 +20,11 @@ from ..engines import (
 )
 from ..training import (
     EvalSuiteBuilder,
+    ExportConfig,
+    FineTuneDataExporter,
     RewardScenarioBuilder,
     SyntheticDatasetGenerator,
+    teacher_is_available,
 )
 from ..types import Domain, Platform, Prompt, SkillLevel
 from . import schemas
@@ -199,6 +203,121 @@ def create_app() -> FastAPI:
     def synth_reward(req: schemas.RewardRequest) -> Dict[str, Any]:
         scenario = reward_builder.build(req.task)
         return scenario.to_dict()
+
+    # ----------------------------------------------------- fine-tuning export
+    finetune_exporter = FineTuneDataExporter(engine=engine)
+
+    def _build_export_cfg(req: schemas.FineTuneExportRequest) -> ExportConfig:
+        # Validate `fmt` here (we keep schemas free of enums to avoid breaking
+        # existing clients that send strings).
+        if req.fmt not in ("llama", "chatml", "alpaca", "openai"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown format '{req.fmt}'. Use one of: llama, chatml, alpaca, openai.",
+            )
+        if req.use_teacher and not teacher_is_available():
+            # Don't 500; just tell the caller why polish will be skipped.
+            # The exporter's silent fallback will keep the run working.
+            pass
+        return ExportConfig(
+            n_examples=req.n_examples,
+            domains=req.domains,
+            fmt=req.fmt,  # type: ignore[arg-type]
+            min_score=req.min_score,
+            seed=req.seed,
+            edge_case_ratio=req.edge_case_ratio,
+            include_system_prompt=req.include_system_prompt,
+            use_teacher=req.use_teacher,
+            teacher_model=req.teacher_model,
+            teacher_temperature=req.teacher_temperature,
+        )
+
+    @app.get("/training/finetune/teacher-status")
+    def teacher_status() -> Dict[str, Any]:
+        """Tell the UI whether the GPT-4 teacher is wired up.
+
+        Used by the dashboard to decide whether to show the 'use teacher'
+        toggle as enabled or disabled.
+        """
+        return {"available": teacher_is_available()}
+
+    @app.post("/training/finetune/export")
+    def finetune_export(req: schemas.FineTuneExportRequest) -> Dict[str, Any]:
+        """Generate a JSONL fine-tuning dataset and return it inline.
+
+        Best for moderate sizes (n_examples <= ~1000). For larger runs prefer
+        /training/finetune/stream which streams NDJSON as it generates.
+        """
+        cfg = _build_export_cfg(req)
+        try:
+            records, stats = finetune_exporter.export(cfg)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return {"records": records, "stats": stats.to_dict()}
+
+    @app.post("/training/finetune/stream")
+    def finetune_stream(req: schemas.FineTuneExportRequest) -> StreamingResponse:
+        """Stream the dataset as newline-delimited JSON.
+
+        First line is a `meta` record (config, started_at). Then one JSON
+        line per kept training example. Final line is a `summary` record
+        with full stats. Clients can save the body as `dataset.jsonl` after
+        stripping the meta/summary lines, or process them live.
+        """
+        import json
+        import time
+
+        cfg = _build_export_cfg(req)
+
+        def _gen():
+            yield json.dumps({
+                "type": "meta",
+                "format": cfg.fmt,
+                "n_examples": cfg.n_examples,
+                "domains": [d.value for d in cfg.domains] if cfg.domains else None,
+                "use_teacher": cfg.use_teacher and teacher_is_available(),
+                "started_at": time.time(),
+            }) + "\n"
+
+            count = 0
+            for record in finetune_exporter.export_iter(cfg):
+                count += 1
+                yield json.dumps(record, ensure_ascii=False) + "\n"
+
+            yield json.dumps({
+                "type": "summary",
+                "kept": count,
+                "requested": cfg.n_examples,
+                "finished_at": time.time(),
+            }) + "\n"
+
+        return StreamingResponse(_gen(), media_type="application/x-ndjson")
+
+    @app.post("/training/finetune/download")
+    def finetune_download(req: schemas.FineTuneExportRequest) -> StreamingResponse:
+        """Same as /export but returns a downloadable .jsonl file.
+
+        Note: this is not streaming; we collect first, then send. Use this
+        from the UI to give the user a 'Download dataset' button.
+        """
+        import json
+
+        cfg = _build_export_cfg(req)
+        try:
+            records, _ = finetune_exporter.export(cfg)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        def _iter_lines():
+            for r in records:
+                yield json.dumps(r, ensure_ascii=False) + "\n"
+
+        filename = f"nexusai_train_{cfg.fmt}_{cfg.n_examples}.jsonl"
+        return StreamingResponse(
+            _iter_lines(),
+            media_type="application/x-ndjson",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     # ------------------------------------------------------------------ memory
     @app.get("/memory/snapshot")

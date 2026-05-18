@@ -4,15 +4,31 @@ Provides:
   * SyntheticDatasetGenerator – schema-driven synthetic example generation.
   * EvalSuiteBuilder          – build an evaluation rubric + held-out tasks.
   * RewardScenarioBuilder     – RL reward + anti-gaming penalty templates.
+  * VarietyEngine             – diverse synthetic ideas for fine-tuning data.
+  * FineTuneDataExporter      – produce JSONL datasets in 4 formats.
+  * GPT4Teacher               – optional output polisher via OpenAI API.
 
-These do not call any external model. They produce structured artifacts
-(JSON-friendly dicts) that downstream training code can consume.
+These do not call any external model unless explicitly enabled
+(GPT4Teacher). They produce structured artifacts (JSON-friendly dicts) that
+downstream training code can consume.
 """
 from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+
+# Re-exports for the fine-tuning pipeline.
+from .exporter import (  # noqa: F401
+    DEFAULT_SYSTEM_PROMPT,
+    ExportConfig,
+    ExportStats,
+    FineTuneDataExporter,
+    Format,
+    export_training_data,
+)
+from .teacher import GPT4Teacher, TeacherStats, is_available as teacher_is_available  # noqa: F401
+from .variety import SyntheticIdea, VarietyEngine  # noqa: F401
 
 
 @dataclass
