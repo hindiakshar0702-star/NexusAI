@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nexusai"
+version = "0.1.0"
+description = "Autonomous prompt-engineering ecosystem"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.9",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nexusai*"]
