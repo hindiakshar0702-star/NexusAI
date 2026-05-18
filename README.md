@@ -67,7 +67,8 @@ You need **Python 3.10+** and **Node.js 18+**.
 ### 1. Backend
 
 Pick the launcher that matches your OS — they all do the same thing
-(create `.venv`, install requirements, start uvicorn on port 8000):
+(create `.venv`, install requirements, load `.env` if present, start
+uvicorn on port 8000):
 
 **macOS / Linux:**
 ```bash
@@ -96,6 +97,19 @@ run.bat
 ```
 
 The API is now at `http://localhost:8000`. Open `/docs` for Swagger UI.
+
+#### Configuring host, port, and secrets
+
+Copy `backend/.env.example` to `backend/.env` and uncomment what you
+want to override:
+
+```ini
+BACKEND_HOST=127.0.0.1     # bind only to localhost (default: 0.0.0.0)
+BACKEND_PORT=9000          # use a different port (default: 8000)
+OPENAI_API_KEY=sk-...      # enables the GPT-4 teacher
+```
+
+All three launchers read `.env` automatically.
 
 ### 2. Frontend
 

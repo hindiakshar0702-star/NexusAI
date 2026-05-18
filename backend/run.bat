@@ -1,11 +1,13 @@
 @echo off
 REM ============================================================
-REM  NexusAI backend launcher for Windows (Command Prompt + PS).
+REM  NexusAI backend launcher for Windows (cmd.exe).
 REM
-REM  What this does:
-REM    1. Creates a Python virtualenv in .venv if missing.
-REM    2. Installs/updates dependencies.
-REM    3. Starts uvicorn with auto-reload on port 8000.
+REM  Behavior:
+REM    1. Move into this script's directory (the backend root).
+REM    2. Create .venv if missing, install requirements.
+REM    3. Load environment variables from .env if it exists.
+REM    4. Start uvicorn with --reload, honoring BACKEND_HOST /
+REM       BACKEND_PORT overrides.
 REM
 REM  Usage:
 REM    cd backend
@@ -13,19 +15,16 @@ REM    run.bat
 REM ============================================================
 
 setlocal EnableDelayedExpansion
-
-REM Move to the script's own directory so paths work no matter
-REM where the user invoked us from.
 cd /d "%~dp0"
 
-REM --- Step 1: pick a Python interpreter -------------------------
+REM --- Step 1: ensure python is available ----------------------
 where python >nul 2>nul
 if errorlevel 1 (
-    echo [error] python is not on PATH. Install Python 3.10+ from python.org and re-run.
+    echo [error] python is not on PATH. Install Python 3.10+ from python.org.
     exit /b 1
 )
 
-REM --- Step 2: create venv on first run --------------------------
+REM --- Step 2: create venv on first run ------------------------
 if not exist ".venv\Scripts\python.exe" (
     echo [setup] creating virtualenv in .venv ...
     python -m venv .venv
@@ -35,22 +34,46 @@ if not exist ".venv\Scripts\python.exe" (
     )
 )
 
-REM --- Step 3: install/upgrade requirements ---------------------
-echo [setup] installing dependencies (idempotent, safe to re-run) ...
+REM --- Step 3: install/upgrade requirements -------------------
+echo [setup] installing dependencies (idempotent) ...
 ".venv\Scripts\python.exe" -m pip install --quiet --upgrade pip
 ".venv\Scripts\python.exe" -m pip install --quiet -r requirements.txt
 if errorlevel 1 (
-    echo [error] pip install failed. See messages above.
+    echo [error] pip install failed.
     exit /b 1
 )
 
-REM --- Step 4: launch uvicorn -----------------------------------
+REM --- Step 4: load .env if present ---------------------------
+REM   cmd.exe has no built-in `source`, so we parse line-by-line.
+REM   Lines beginning with `#` and blank lines are skipped.
+if exist ".env" (
+    echo [setup] loading variables from .env ...
+    for /f "usebackq tokens=1,* delims==" %%A in (".env") do (
+        set "_KEY=%%A"
+        set "_VAL=%%B"
+        REM Skip comment lines.
+        if not "!_KEY:~0,1!"=="#" (
+            if not "!_KEY!"=="" (
+                set "!_KEY!=!_VAL!"
+            )
+        )
+    )
+)
+
+REM --- Step 5: apply defaults ---------------------------------
+if "%BACKEND_HOST%"=="" set "BACKEND_HOST=0.0.0.0"
+if "%BACKEND_PORT%"=="" set "BACKEND_PORT=8000"
+
+REM --- Step 6: launch uvicorn ---------------------------------
 echo.
-echo [launch] starting NexusAI on http://localhost:8000
-echo          docs available at http://localhost:8000/docs
+echo [launch] starting NexusAI on http://%BACKEND_HOST%:%BACKEND_PORT%
+echo          docs available at http://localhost:%BACKEND_PORT%/docs
 echo          press CTRL+C to stop.
 echo.
 
-".venv\Scripts\python.exe" -m uvicorn nexusai.api.app:app --host 0.0.0.0 --port 8000 --reload
+".venv\Scripts\python.exe" -m uvicorn nexusai.api.app:app ^
+    --host "%BACKEND_HOST%" ^
+    --port %BACKEND_PORT% ^
+    --reload
 
 endlocal
