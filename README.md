@@ -66,14 +66,50 @@ You need **Python 3.10+** and **Node.js 18+**.
 
 ### 1. Backend
 
+Pick the launcher that matches your OS — they all do the same thing
+(create `.venv`, install requirements, load `.env` if present, start
+uvicorn on port 8000):
+
+**macOS / Linux:**
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-./run.sh                              # uvicorn nexusai.api.app:app --reload --port 8000
+./run.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+cd backend
+.\run.ps1
+```
+
+If PowerShell complains about scripts being disabled, run this once
+in an admin PowerShell window:
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+**Windows (Command Prompt):**
+```cmd
+cd backend
+run.bat
 ```
 
 The API is now at `http://localhost:8000`. Open `/docs` for Swagger UI.
+
+#### Configuring host, port, and secrets
+
+Copy `backend/.env.example` to `backend/.env` and uncomment what you
+want to override:
+
+```ini
+BACKEND_HOST=127.0.0.1     # bind only to localhost (default: 0.0.0.0)
+BACKEND_PORT=9000          # use a different port (default: 8000)
+OPENAI_API_KEY=sk-...      # enables the GPT-4 teacher
+```
+
+All three launchers read `.env` automatically.
 
 ### 2. Frontend
 
@@ -83,6 +119,8 @@ cp .env.local.example .env.local      # adjust NEXT_PUBLIC_API_URL if needed
 npm install
 npm run dev
 ```
+
+> On Windows, replace `cp` with `copy`.
 
 Open `http://localhost:3000`. Requests go through `/api/nexus/*` which is
 rewritten to the FastAPI server in `next.config.mjs`.
